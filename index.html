@@ -306,7 +306,11 @@
 <div class="page active" id="page-calc">
 
   <div class="card" id="session-card">
-    <div class="card-title" style="margin-bottom:10px">Active Session Drugs <span style="color:var(--muted);font-size:10px;font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px">— for interaction checking</span></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="card-title" style="margin-bottom:0">Active Session Drugs <span style="color:var(--muted);font-size:10px;font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px">— for interaction checking</span></div>
+      <button class="btn btn-danger btn-xs" onclick="resetSession()" title="Clear session">↺ Reset</button>
+    </div>
+    <div id="session-patient-label" style="display:none;font-size:11px;font-family:var(--mono);color:var(--accent2);margin-bottom:8px;align-items:center;gap:5px"></div>
     <div class="session-drugs" id="session-chips">
       <div style="font-size:12px;color:var(--muted);font-style:italic">No drugs in session. Drugs are added automatically after each calculation.</div>
     </div>
@@ -651,6 +655,7 @@ let calcSpecies = null;
 let medFilter = 'all';
 let editingId = null;
 let sessionDrugIds = [];
+let sessionPatientId = null;
 let modalDrugContraIds = [];
 let db = null; // IndexedDB instance
 let usingIDB = false;
@@ -984,13 +989,43 @@ function removeFromSession(medId) {
 
 function renderSessionChips() {
   const chips = document.getElementById('session-chips');
+  const labelEl = document.getElementById('session-patient-label');
   const sessionMeds = sessionDrugIds.map(id => meds.find(m => m.id===id)).filter(Boolean);
   if (!sessionMeds.length) {
     chips.innerHTML = '<div style="font-size:12px;color:var(--muted);font-style:italic">No drugs in session. Added automatically after each calculation.</div>';
+    if (labelEl) labelEl.style.display = 'none';
     return;
+  }
+  // Patient label with species icon
+  if (labelEl) {
+    if (sessionPatientId) {
+      const patSpecies = getPatientSpecies(sessionPatientId);
+      const icon = patSpecies === 'dog' ? '🐶' : patSpecies === 'cat' ? '🐱' : '🐾';
+      labelEl.style.display = 'flex';
+      labelEl.innerHTML = `${icon} <span style="color:var(--accent2);font-weight:700">${sessionPatientId}</span>`;
+    } else {
+      labelEl.style.display = 'none';
+    }
   }
   chips.innerHTML = sessionMeds.map(m => `
     <div class="session-chip">${m.name}<span class="remove-chip" onclick="removeFromSession('${m.id}')">✕</span></div>`).join('');
+}
+
+function getPatientSpecies(patientId) {
+  // Determine the most common species for a known patient based on history
+  if (!patientId) return null;
+  const records = calcHistory.filter(h => h.patientId === patientId);
+  if (!records.length) return null;
+  const counts = {};
+  records.forEach(h => { if (h.species) counts[h.species] = (counts[h.species]||0)+1; });
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
+}
+
+function resetSession() {
+  sessionDrugIds = [];
+  sessionPatientId = null;
+  renderSessionChips();
+  toast('Session cleared');
 }
 
 // ─── DRUG INTERACTION CHECK ───────────────────────────────
@@ -1137,11 +1172,14 @@ function onPatientInput() {
   if (!q) { sugg.classList.remove('open'); return; }
   const patients = getKnownPatients().filter(p => p.id.toLowerCase().includes(q) && p.id.toLowerCase() !== q);
   if (!patients.length) { sugg.classList.remove('open'); return; }
-  sugg.innerHTML = patients.slice(0,6).map(p => `
-    <div class="patient-suggestion-item" onmousedown="pickPatient('${p.id.replace(/'/g,"\\'")}')">
-      👤 ${p.id}
+  sugg.innerHTML = patients.slice(0,6).map(p => {
+    const sp = getPatientSpecies(p.id);
+    const icon = sp === 'dog' ? '🐶' : sp === 'cat' ? '🐱' : '🐾';
+    return `<div class="patient-suggestion-item" onmousedown="pickPatient('${p.id.replace(/'/g,"\\'")}')">
+      ${icon} ${p.id}
       <span class="ps-count">${p.count} calc${p.count!==1?'s':''}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   sugg.classList.add('open');
 }
 
@@ -1154,11 +1192,14 @@ function onPatientFocus() {
     if (!patients.length) return;
     const sugg = document.getElementById('patient-suggestions');
     sugg.innerHTML = `<div style="padding:7px 13px;font-size:10px;color:var(--muted);font-weight:700;letter-spacing:0.5px;text-transform:uppercase">Recent patients</div>` +
-      patients.map(p => `
-        <div class="patient-suggestion-item" onmousedown="pickPatient('${p.id.replace(/'/g,"\\'")}')">
-          👤 ${p.id}
+      patients.map(p => {
+        const sp = getPatientSpecies(p.id);
+        const icon = sp === 'dog' ? '🐶' : sp === 'cat' ? '🐱' : '🐾';
+        return `<div class="patient-suggestion-item" onmousedown="pickPatient('${p.id.replace(/'/g,"\\'")}')">
+          ${icon} ${p.id}
           <span class="ps-count">${p.count} calc${p.count!==1?'s':''}</span>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     sugg.classList.add('open');
   }
 }
@@ -1172,6 +1213,29 @@ function onPatientBlur() {
 function pickPatient(id) {
   document.getElementById('calc-patient-id').value = id;
   document.getElementById('patient-suggestions').classList.remove('open');
+  // Link session to this patient
+  sessionPatientId = id;
+  renderSessionChips();
+  // Derive species + last known weight from history
+  const records = calcHistory.filter(h => h.patientId === id);
+  const patSpecies = getPatientSpecies(id);
+  // Auto-fill weight from most recent record for this patient
+  if (records.length) {
+    const lastRecord = records[0]; // history is newest-first
+    const weightEl = document.getElementById('calc-weight');
+    if (lastRecord.weight && (!weightEl.value || parseFloat(weightEl.value) === 0)) {
+      weightEl.value = lastRecord.weight;
+    }
+  }
+  // Pre-select species if we know this patient and a med is already selected
+  if (patSpecies && selectedMed) {
+    const btns = document.querySelectorAll('#calc-species-toggle .species-btn');
+    btns.forEach(b => { if (b.classList.contains(patSpecies)) b.click(); });
+  }
+  // Update the patient field label with species icon
+  const icon = patSpecies === 'dog' ? '🐶' : patSpecies === 'cat' ? '🐱' : '🐾';
+  const label = document.getElementById('calc-patient-id').closest('.field')?.querySelector('label');
+  if (label) label.textContent = `PATIENT ID / NAME  ${icon}`;
 }
 
 // ─── CALCULATE PAGE ───────────────────────────────────────
@@ -1336,6 +1400,9 @@ function clearCalcForm() {
   document.getElementById('calc-patient-id').value='';
   document.getElementById('calc-weight').value='';
   document.getElementById('calc-search').value='';
+  // Reset patient field label
+  const label = document.getElementById('calc-patient-id').closest('.field')?.querySelector('label');
+  if (label) label.textContent = 'PATIENT ID / NAME';
   renderCalcList();
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -1351,6 +1418,13 @@ function calculate() {
   if (!rawW || rawW<=0) return toast('Enter a valid weight','error');
 
   const patientId = document.getElementById('calc-patient-id').value.trim();
+  // Link session to patient — if patient changed, reset session
+  if (patientId && patientId !== sessionPatientId) {
+    sessionDrugIds = [];
+    sessionPatientId = patientId;
+  } else if (!patientId) {
+    sessionPatientId = null;
+  }
   const conc   = selectedConc||(selectedRoute.concentrations?.[0]||null);
   const doseMg = selectedCase.dose * rawW;
   const volMl  = conc ? doseMg/conc : null;
@@ -1745,8 +1819,12 @@ function renderHistory() {
 
   let filtered = calcHistory.filter(h => {
     if (patQ && !(h.patientId||'').toLowerCase().includes(patQ)) return false;
-    if (dateFrom && h.time < dateFrom) return false;
-    if (dateTo   && h.time > dateTo+'T23:59:59') return false;
+    if (dateFrom && new Date(h.time) < new Date(dateFrom)) return false;
+    if (dateTo) {
+      const toEnd = new Date(dateTo);
+      toEnd.setHours(23, 59, 59, 999);
+      if (new Date(h.time) > toEnd) return false;
+    }
     return true;
   });
 
@@ -1769,6 +1847,8 @@ function renderHistory() {
     const lastEntry = entries[0];
     const lastDate  = new Date(lastEntry.time).toLocaleDateString();
     const isAnon    = patKey === NO_PATIENT;
+    const patSpecies = isAnon ? null : getPatientSpecies(patKey);
+    const patIcon = isAnon ? '👤' : (patSpecies === 'dog' ? '🐶' : patSpecies === 'cat' ? '🐱' : '🐾');
     const itemsHTML = entries.map(h => {
       const d = new Date(h.time);
       const timeStr = d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
@@ -1780,14 +1860,14 @@ function renderHistory() {
         <div class="history-dose">${h.dose.toFixed(2)} mg</div>
         ${h.volDisplay?`<div class="history-vol">${h.volDisplay}</div>`:''}
         ${h.unitStr?`<div class="history-unit">💊 ${h.unitStr}</div>`:''}
-        <div class="history-detail">${h.species==='dog'?'🐶':'🐱'} ${h.weight} kg · ${h.route}${h.caseLabel&&h.caseLabel!=='Standard'?' · '+h.caseLabel:''}</div>
+        <div class="history-detail">${h.species==='dog'?'🐶':h.species==='cat'?'🐱':'🐾'} ${h.weight!=null?h.weight+' kg':'?'} · ${h.route}${h.caseLabel&&h.caseLabel!=='Standard'?' · '+h.caseLabel:''}</div>
       </div>`;
     }).join('');
 
     return `<div class="patient-group">
       <div class="patient-group-header" onclick="togglePatientGroup(this)">
         <div class="patient-group-name">
-          ${isAnon?'👤':'🐾'} ${displayName}
+          ${patIcon} ${displayName}
           <span style="font-size:11px;color:var(--muted);font-weight:400">(${entries.length})</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -1878,7 +1958,7 @@ function importData(e) {
 
 async function clearAll() {
   if(!await confirmDialog('Clear All Data', 'This will delete all medications, history, and settings. Cannot be undone.', '🗑️ Delete Everything')) return;
-  meds=[]; calcHistory=[]; sessionDrugIds=[]; doctorName='';
+  meds=[]; calcHistory=[]; sessionDrugIds=[]; sessionPatientId=null; doctorName='';
   // Wipe IDB directly
   if (db) {
     try {
@@ -2473,11 +2553,11 @@ function addFromLibrary(lid) {
 })();
 
 // ─── SERVICE WORKER REGISTRATION ─────────────────────────
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && location.protocol !== 'blob:' && !location.href.startsWith('blob:')) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./service-worker.js')
       .then(reg => console.log('SW registered:', reg.scope))
-      .catch(err => console.log('SW registration failed:', err));
+      .catch(err => console.log('SW not available (standalone HTML mode)'));
   });
 }
 </script>
