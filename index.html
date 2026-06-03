@@ -34,9 +34,9 @@
     --sans: 'Syne', sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; padding-bottom: calc(80px + env(safe-area-inset-bottom, 20px)); }
   /* iOS safe area support */
-  .bottom-nav { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important; }
+  .bottom-nav { padding-bottom: calc(12px + env(safe-area-inset-bottom, 16px)) !important; }
   .header { padding-top: max(12px, env(safe-area-inset-top, 12px)); }
 
   .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100; }
@@ -195,7 +195,7 @@
   .toast.error { border-color: var(--danger); color: var(--danger); }
   .toast.warn { border-color: var(--warn); color: var(--warn); }
 
-  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; padding: 8px 0 20px; z-index: 100; }
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; padding: 8px 0 0; z-index: 100; padding-bottom: calc(8px + env(safe-area-inset-bottom, 8px)); }
   .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px; cursor: pointer; color: var(--muted); transition: color 0.2s; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
   .nav-item.active { color: var(--accent); }
   .nav-icon { font-size: 19px; }
@@ -383,6 +383,33 @@
   .modal-tab.active { background: var(--accent2); color: var(--bg); border-color: var(--accent2); }
   .modal-section { display: none; }
   .modal-section.active { display: block; }
+  /* iOS Safari checkbox fix */
+  .soap-checkbox-grid input[type="checkbox"] {
+    -webkit-appearance: checkbox;
+    appearance: checkbox;
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    accent-color: var(--accent2);
+    cursor: pointer;
+  }
+  .soap-checkbox-grid label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 10px 11px;
+    border-radius: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .soap-checkbox-grid label:active { border-color: var(--accent2); background: rgba(74,159,240,0.15); }
 
   /* Attachment add btn */
   .attach-add { display: flex; align-items: center; gap: 6px; background: var(--surface2); border: 1px dashed var(--border); border-radius: 8px; padding: 9px 13px; font-size: 13px; color: var(--muted); cursor: pointer; margin-top: 7px; width: 100%; font-family: var(--sans); font-weight: 700; transition: border-color 0.2s; }
@@ -756,7 +783,7 @@
       <button class="btn btn-primary btn-sm" style="flex:1" onclick="saveGitHubSettings()">Save & Connect</button>
       <button class="btn btn-secondary btn-sm" style="flex:1" onclick="pullFromGist()">⬇ Pull from Cloud</button>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:9px;line-height:1.6">All data (patients, meds, history) is stored in a single private Gist as encrypted JSON. Token needs <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">gist</code> scope only.</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:9px;line-height:1.6">All data (patients, meds, history) is stored in a single private Gist as JSON. Token needs <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">gist</code> scope only. Create at <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">github.com/settings/tokens</code> — use a Classic token (not fine-grained) for best compatibility.</div>
   </div>
 
   <div style="text-align:center;color:var(--muted);font-size:11px;font-family:var(--mono);padding:20px 0">VetDose v6.0 · Patient Records + Cloud Sync · Add to Home Screen for app experience</div>
@@ -991,31 +1018,15 @@
   <div class="modal-section" id="vmt-soap">
     <div class="soap-section">
       <div class="soap-label">S — Subjective (symptoms)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px">
-        <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text);background:var(--surface2);border:1px solid var(--border);padding:8px 11px;border-radius:8px;cursor:pointer">
-          <input type="checkbox" id="s-vomiting" style="width:15px;height:15px;accent-color:var(--accent2)"> Vomiting
-        </label>
-        <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text);background:var(--surface2);border:1px solid var(--border);padding:8px 11px;border-radius:8px;cursor:pointer">
-          <input type="checkbox" id="s-diarrhea" style="width:15px;height:15px;accent-color:var(--accent2)"> Diarrhea
-        </label>
-        <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text);background:var(--surface2);border:1px solid var(--border);padding:8px 11px;border-radius:8px;cursor:pointer">
-          <input type="checkbox" id="s-anorexia" style="width:15px;height:15px;accent-color:var(--accent2)"> Anorexia
-        </label>
-        <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text);background:var(--surface2);border:1px solid var(--border);padding:8px 11px;border-radius:8px;cursor:pointer">
-          <input type="checkbox" id="s-lethargy" style="width:15px;height:15px;accent-color:var(--accent2)"> Lethargy
-        </label>
-        <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text);background:var(--surface2);border:1px solid var(--border);padding:8px 11px;border-radius:8px;cursor:pointer">
-          <input type="checkbox" id="s-cough" style="width:15px;height:15px;accent-color:var(--accent2)"> Coughing
-        </label>
-        <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text);background:var(--surface2);border:1px solid var(--border);padding:8px 11px;border-radius:8px;cursor:pointer">
-          <input type="checkbox" id="s-dyspnea" style="width:15px;height:15px;accent-color:var(--accent2)"> Dyspnea
-        </label>
-        <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text);background:var(--surface2);border:1px solid var(--border);padding:8px 11px;border-radius:8px;cursor:pointer">
-          <input type="checkbox" id="s-polyuria" style="width:15px;height:15px;accent-color:var(--accent2)"> Polyuria/PD
-        </label>
-        <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text);background:var(--surface2);border:1px solid var(--border);padding:8px 11px;border-radius:8px;cursor:pointer">
-          <input type="checkbox" id="s-seizure" style="width:15px;height:15px;accent-color:var(--accent2)"> Seizures
-        </label>
+      <div class="soap-checkbox-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px">
+        <label for="s-vomiting"><input type="checkbox" id="s-vomiting"> Vomiting</label>
+        <label for="s-diarrhea"><input type="checkbox" id="s-diarrhea"> Diarrhea</label>
+        <label for="s-anorexia"><input type="checkbox" id="s-anorexia"> Anorexia</label>
+        <label for="s-lethargy"><input type="checkbox" id="s-lethargy"> Lethargy</label>
+        <label for="s-cough"><input type="checkbox" id="s-cough"> Coughing</label>
+        <label for="s-dyspnea"><input type="checkbox" id="s-dyspnea"> Dyspnea</label>
+        <label for="s-polyuria"><input type="checkbox" id="s-polyuria"> Polyuria/PD</label>
+        <label for="s-seizure"><input type="checkbox" id="s-seizure"> Seizures</label>
       </div>
       <div class="field"><label>DURATION</label><input type="text" id="s-duration" placeholder="e.g. 3 days"></div>
     </div>
@@ -1152,6 +1163,25 @@
 </div>
 </div>
 
+
+<!-- VISIT PICKER MODAL (add drug to existing visit or new) -->
+<div class="modal-overlay" id="visit-picker-modal" onclick="this.classList.remove('show')">
+  <div class="modal" onclick="event.stopPropagation()" style="padding-bottom:28px">
+    <div class="modal-handle"></div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:4px" id="visit-picker-title">Save to Patient Record</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px" id="visit-picker-drug"></div>
+
+    <!-- Today's visits (if any) -->
+    <div id="visit-picker-today" style="display:none;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--accent);text-transform:uppercase;margin-bottom:8px">Today's Visits</div>
+      <div id="visit-picker-list" style="display:flex;flex-direction:column;gap:7px"></div>
+    </div>
+
+    <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px" id="visit-picker-new-label">Or Start New Visit</div>
+    <button class="btn btn-primary" onclick="visitPickerNewVisit()" style="margin-bottom:10px">＋ New Visit</button>
+    <button class="btn btn-secondary" onclick="document.getElementById('visit-picker-modal').classList.remove('show')">Cancel</button>
+  </div>
+</div>
 
 <!-- CUSTOM CONFIRM MODAL (replaces browser confirm() which is blocked on iOS) -->
 <div class="modal-overlay" id="confirm-modal" style="z-index:500">
@@ -2306,6 +2336,12 @@ function calculate() {
   }
 }
 
+// ─── SAVE CALC TO PATIENT ────────────────────────────────
+// Stores the pending drug line so the picker modal can use it
+let _pendingDrugLine = '';
+let _pendingPatientId = '';
+let _pendingWeight = 0;
+
 function saveCalcToPatient() {
   if (!selectedMed || !selectedRoute || !selectedCase) return toast('No result to save','error');
   const pid = document.getElementById('calc-patient-id').value.trim();
@@ -2319,17 +2355,81 @@ function saveCalcToPatient() {
   const freq = selectedCase.freq || selectedRoute.freq || '';
   const drugLine = `${selectedMed.name}${selectedMed.brand?' ('+selectedMed.brand+')':''} ${doseMg}mg (${selectedCase.dose}mg/kg × ${rawW}kg, ${selectedRoute.route})${volMl?' = '+volMl.toFixed(2)+'ml':''}${freq?' '+freq:''}`;
 
-  // Open visit modal pre-filled with the drug in the Plan section
-  currentVisitPatientId = regPat.id;
+  _pendingDrugLine = drugLine;
+  _pendingPatientId = regPat.id;
+  _pendingWeight = rawW;
+
+  // Find today's visits for this patient
+  const todayStr = new Date().toISOString().slice(0,10);
+  const todayVisits = (regPat.visits||[]).filter(v => v.date === todayStr);
+
+  if (todayVisits.length > 0) {
+    // Show picker modal
+    document.getElementById('visit-picker-title').textContent = regPat.name + ' — Save Drug';
+    document.getElementById('visit-picker-drug').textContent = drugLine;
+    const todayDiv = document.getElementById('visit-picker-today');
+    todayDiv.style.display = 'block';
+    document.getElementById('visit-picker-new-label').textContent = 'Or Start a New Visit';
+    document.getElementById('visit-picker-list').innerHTML = todayVisits.map(v => {
+      const existingDrugs = v.soap?.p?.drugs || v.treatment || '';
+      const complaint = v.complaint || 'Visit';
+      const drugCount = existingDrugs ? existingDrugs.split('\n').filter(Boolean).length : 0;
+      return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 13px;cursor:pointer;transition:border-color 0.2s"
+        onclick="visitPickerAppend('${v.id}')"
+        onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='var(--border)'">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:14px;font-weight:700">${complaint}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${drugCount} drug${drugCount!==1?'s':''} already logged</div>
+            ${existingDrugs ? `<div style="font-size:11px;color:var(--accent2);margin-top:4px;line-height:1.4">${existingDrugs.split('\n').filter(Boolean).map(d=>'💊 '+d).join('<br>')}</div>` : ''}
+          </div>
+          <div style="font-size:22px;flex-shrink:0;margin-left:10px;color:var(--accent)">＋</div>
+        </div>
+      </div>`;
+    }).join('');
+    document.getElementById('visit-picker-modal').classList.add('show');
+  } else {
+    // No visits today — go straight to new visit modal
+    visitPickerNewVisit();
+  }
+}
+
+function visitPickerAppend(vid) {
+  // Append drug line to existing visit's Plan drugs field silently
+  const pat = patients.find(x => x.id === _pendingPatientId);
+  if (!pat) return;
+  const visit = (pat.visits||[]).find(v => v.id === vid);
+  if (!visit) return;
+
+  if (!visit.soap) visit.soap = { s:{}, o:{}, a:{}, p:{} };
+  if (!visit.soap.p) visit.soap.p = {};
+  const existing = visit.soap.p.drugs || '';
+  visit.soap.p.drugs = existing ? existing + '\n' + _pendingDrugLine : _pendingDrugLine;
+  // Also update weight if not already set
+  if (_pendingWeight && !visit.soap.o?.weight) {
+    if (!visit.soap.o) visit.soap.o = {};
+    visit.soap.o.weight = _pendingWeight.toString();
+  }
+
+  savePatients();
+  document.getElementById('visit-picker-modal').classList.remove('show');
+  toast('✅ Drug added to visit', 'success');
+}
+
+function visitPickerNewVisit() {
+  document.getElementById('visit-picker-modal').classList.remove('show');
+  // Open visit modal pre-filled
+  currentVisitPatientId = _pendingPatientId;
   editingVisitId = null;
-  document.getElementById('visit-modal-title').textContent = 'New Visit — ' + regPat.name;
+  const pat = patients.find(x => x.id === _pendingPatientId);
+  document.getElementById('visit-modal-title').textContent = 'New Visit' + (pat ? ' — ' + pat.name : '');
   clearVisitModal();
   setVal('vm-date', new Date().toISOString().slice(0,10));
-  setVal('p-drugs', drugLine);
-  setVal('o-weight', rawW.toString());
+  setVal('p-drugs', _pendingDrugLine);
+  setVal('o-weight', _pendingWeight.toString());
   document.getElementById('visit-modal').classList.add('show');
   switchVisitModalTab('plan');
-  toast('Pre-filled drug from calculation','success');
+  toast('Pre-filled drug in Plan tab', 'success');
 }
 
 // ─── MED LIST PAGE ────────────────────────────────────────
@@ -5096,8 +5196,9 @@ function saveGitHubSettings() {
 }
 
 let gistSyncTimer = null;
+let appReady = false; // set true after init completes
 function scheduleGistSync() {
-  if (!ghToken) return;
+  if (!ghToken || !appReady) return;
   clearTimeout(gistSyncTimer);
   gistSyncTimer = setTimeout(() => syncNow(true), 3000);
 }
@@ -5108,6 +5209,19 @@ async function syncNow(silent = false) {
   syncBusy = true;
   updateSyncStatusUI('busy');
   try {
+    // Reload fresh data from IDB before syncing to avoid pushing stale/empty arrays
+    if (usingIDB) {
+      const fresh = await idbGet('vetdose_data');
+      if (fresh && Array.isArray(fresh.meds) && fresh.meds.length > 0) {
+        meds = fresh.meds.map(ensureV3Fields);
+        calcHistory = fresh.history || calcHistory;
+        doctorName = fresh.doctorName || doctorName;
+      }
+      const freshP = await idbGet('vetdose_patients');
+      if (Array.isArray(freshP) && freshP.length > 0) patients = freshP;
+      const freshO = await idbGet('vetdose_owners');
+      if (Array.isArray(freshO) && freshO.length > 0) owners = freshO;
+    }
     const payload = buildGistPayload();
     if (ghGistId) {
       await updateGist(ghGistId, payload);
@@ -5123,7 +5237,11 @@ async function syncNow(silent = false) {
     updateSyncStatusUI('ok');
   } catch(e) {
     console.error('Gist sync failed:', e);
-    if (!silent) toast('Sync failed: ' + (e.message||'network error'), 'error');
+    const msg = e.message || 'network error';
+    // Give actionable hints for common errors
+    const hint = msg.includes('Invalid token') || msg.includes('401') ? '— verify token has gist scope' :
+                 msg.includes('fetch') ? '— check internet connection' : '';
+    if (!silent) toast('Sync failed: ' + msg + (hint ? ' ' + hint : ''), 'error');
     updateSyncStatusUI('err');
   }
   syncBusy = false;
@@ -5133,24 +5251,47 @@ function buildGistPayload() {
   return JSON.stringify({ version: 6, meds, calcHistory, patients, owners, doctorName, syncedAt: new Date().toISOString() });
 }
 
+function ghHeaders(extra = {}) {
+  // GitHub now requires Bearer (not legacy "token") for all token types
+  return {
+    'Authorization': 'Bearer ' + ghToken,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    ...extra
+  };
+}
+
+async function ghFetch(url, options = {}) {
+  // Explicit cors mode + credentials omit needed for standalone HTML files
+  const res = await fetch(url, {
+    mode: 'cors',
+    credentials: 'omit',
+    ...options,
+    headers: { ...ghHeaders(), ...(options.headers || {}) }
+  });
+  if (res.status === 401) throw new Error('Invalid token — check it has "gist" scope');
+  if (res.status === 403) throw new Error('Forbidden — token may be expired or missing gist scope');
+  if (res.status === 404) throw new Error('Gist not found — check the Gist ID');
+  if (!res.ok) throw new Error('GitHub API error ' + res.status);
+  return res;
+}
+
 async function createGist(content) {
-  const res = await fetch('https://api.github.com/gists', {
+  const res = await ghFetch('https://api.github.com/gists', {
     method: 'POST',
-    headers: { 'Authorization': 'token ' + ghToken, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ description: 'VetDose Data — Do not edit manually', public: false, files: { [GIST_FILENAME]: { content } } })
   });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
   const data = await res.json();
   return data.id;
 }
 
 async function updateGist(gistId, content) {
-  const res = await fetch('https://api.github.com/gists/' + gistId, {
+  await ghFetch('https://api.github.com/gists/' + gistId, {
     method: 'PATCH',
-    headers: { 'Authorization': 'token ' + ghToken, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ files: { [GIST_FILENAME]: { content } } })
   });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
 }
 
 async function pullFromGist() {
@@ -5159,13 +5300,10 @@ async function pullFromGist() {
   if (!ok) return;
   updateSyncStatusUI('busy');
   try {
-    const res = await fetch('https://api.github.com/gists/' + ghGistId, {
-      headers: { 'Authorization': 'token ' + ghToken }
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const res = await ghFetch('https://api.github.com/gists/' + ghGistId);
     const gistData = await res.json();
     const content = gistData.files?.[GIST_FILENAME]?.content;
-    if (!content) throw new Error('File not found in Gist');
+    if (!content) throw new Error('VetDose file not found in Gist — try syncing first');
     const data = JSON.parse(content);
     if (Array.isArray(data.meds)) meds = data.meds;
     if (Array.isArray(data.calcHistory)) calcHistory = data.calcHistory;
@@ -5498,6 +5636,7 @@ function printFallback(text) {
     initDragDrop();
     updateStats();
     updateSyncStatusUI();
+    appReady = true; // allow background syncs now that data is loaded
   } catch(e) {
     console.error('Init failed:', e);
     showFatalError('VetDose failed to start. Your data is safe — please reload. (' + (e?.message||'unknown error') + ')');
