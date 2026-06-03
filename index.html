@@ -812,9 +812,6 @@
       <button class="btn btn-primary btn-sm" style="flex:1" onclick="saveGitHubSettings()">Save & Connect</button>
       <button class="btn btn-secondary btn-sm" style="flex:1" onclick="pullFromGist()">⬇ Pull from Cloud</button>
     </div>
-      <button class="btn btn-primary btn-sm" style="flex:1" onclick="saveGitHubSettings()">Save & Connect</button>
-      <button class="btn btn-secondary btn-sm" style="flex:1" onclick="pullFromGist()">⬇ Pull from Cloud</button>
-    </div>
     <div style="font-size:11px;color:var(--muted);margin-top:9px;line-height:1.6">All data (patients, meds, history) is stored in a single private Gist as JSON. Token needs <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">gist</code> scope only. Create at <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">github.com/settings/tokens</code> — use a Classic token (not fine-grained) for best compatibility.</div>
   </div>
 
@@ -5334,14 +5331,49 @@ async function pullFromGist() {
   try {
     const res = await ghFetch('https://api.github.com/gists/' + ghGistId);
     const gistData = await res.json();
-    const content = gistData.files?.[GIST_FILENAME]?.content;
-    if (!content) throw new Error('VetDose file not found in Gist — try syncing first');
-    const data = JSON.parse(content);
+
+    // GitHub truncates large gist content — always use raw_url for reliable fetch
+    const fileEntry = gistData.files?.[GIST_FILENAME];
+    if (!fileEntry) {
+      // List all files in gist to help diagnose wrong filename
+      const fileNames = Object.keys(gistData.files || {}).join(', ');
+      throw new Error(`File "${GIST_FILENAME}" not found in Gist. Files present: ${fileNames || 'none'}`);
+    }
+
+    let content = fileEntry.content;
+
+    // Always re-fetch via raw_url to bypass truncation (GitHub truncates at ~1MB in API response)
+    if (fileEntry.raw_url) {
+      try {
+        const rawRes = await fetch(fileEntry.raw_url, {
+          mode: 'cors',
+          credentials: 'omit',
+          headers: { 'Authorization': 'Bearer ' + ghToken }
+        });
+        if (rawRes.ok) {
+          content = await rawRes.text();
+        }
+      } catch(rawErr) {
+        console.warn('raw_url fetch failed, using inline content:', rawErr);
+        // fall through to use inline content
+      }
+    }
+
+    if (!content) throw new Error('Gist file is empty — try syncing from PC first');
+
+    let data;
+    try {
+      data = JSON.parse(content);
+    } catch(parseErr) {
+      throw new Error('Gist data is corrupted (JSON parse failed) — try re-syncing from PC');
+    }
 
     const cloudMeds = Array.isArray(data.meds) ? data.meds : [];
     const cloudPatients = Array.isArray(data.patients) ? data.patients : [];
     const cloudHistory = Array.isArray(data.calcHistory) ? data.calcHistory : [];
     const cloudOwners = Array.isArray(data.owners) ? data.owners : [];
+
+    console.log(`Pull: ${cloudMeds.length} meds, ${cloudPatients.length} patients, ${cloudHistory.length} calcs`);
 
     // Warn if cloud looks empty but local has data
     const cloudEmpty = cloudMeds.length === 0 && cloudPatients.length === 0;
@@ -5376,9 +5408,7 @@ async function pullFromGist() {
     updateStats();
     updateSyncStatusUI('ok');
 
-    const medCount = meds.length;
-    const patCount = patients.length;
-    toast(`✅ Pulled: ${medCount} meds, ${patCount} patients`);
+    toast(`✅ Pulled: ${meds.length} meds, ${patients.length} patients`);
   } catch(e) {
     console.error('Pull failed:', e);
     toast('Pull failed: ' + (e.message||'error'), 'error');
