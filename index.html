@@ -34,40 +34,44 @@
     --sans: 'Syne', sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  /* iOS safe-area: push body below Dynamic Island / status bar */
+
+  /* iOS: header is FIXED (not sticky) and handles the Dynamic Island gap itself.
+     Body gets matching top-padding so content starts below it. */
   body {
     background: var(--bg);
     color: var(--text);
     font-family: var(--sans);
     min-height: 100vh;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 20px));
+    /* Top padding = header height (56px) + safe-area-inset-top */
+    padding-top: calc(56px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* Single merged header rule — padding-top absorbs Dynamic Island */
   .header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    padding: 12px 16px;
-    padding-top: max(12px, env(safe-area-inset-top, 12px));
+    /* Safe area fills the gap above header content (Dynamic Island) */
+    padding: env(safe-area-inset-top, 0px) 16px 0;
+    height: calc(56px + env(safe-area-inset-top, 0px));
     display: flex;
-    align-items: center;
+    align-items: flex-end;
+    padding-bottom: 10px;
     gap: 10px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    z-index: 200;
   }
 
-  /* Bottom nav absorbs home indicator */
+  /* Bottom nav fixed with home-indicator padding */
   .bottom-nav {
     position: fixed;
     bottom: 0; left: 0; right: 0;
     background: var(--surface);
     border-top: 1px solid var(--border);
     display: flex;
-    padding: 8px 0 0;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    z-index: 100;
+    padding: 8px 0;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    z-index: 200;
   }
   .logo { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
   .header-title { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
@@ -76,6 +80,27 @@
   .header-right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
 
   .page { display: none; padding: 16px; }
+  /* Mini sync bar shown at top of each tab */
+  .mini-sync-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mini-sync-bar:active { border-color: var(--accent); }
+  .mini-sync-bar .msb-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; transition: background 0.3s; }
+  .mini-sync-bar .msb-text { flex: 1; }
+  .mini-sync-bar .msb-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 4px 9px; font-size: 10px; font-weight: 700; color: var(--text); cursor: pointer; white-space: nowrap; font-family: var(--sans); }
+  .mini-sync-bar .msb-btn:active { background: var(--accent); color: #000; border-color: var(--accent); }
   .page.active { display: block; }
 
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
@@ -506,11 +531,14 @@
 
 <div class="header">
   <div class="logo">🐾</div>
-  <div style="min-width:0">
+  <div style="min-width:0;flex:1">
     <div class="header-title">VetDose</div>
     <div class="header-sub" id="header-version-sub">Dosage Calculator v5.0</div>
   </div>
-  <div class="header-right">
+  <div class="header-right" style="display:flex;align-items:center;gap:8px">
+    <!-- Sync status dot — tapping opens Settings -->
+    <div id="header-sync-dot" onclick="showPage('settings')" title="Cloud sync status"
+      style="width:8px;height:8px;border-radius:50%;background:var(--muted);cursor:pointer;flex-shrink:0;transition:background 0.3s;display:none"></div>
     <div id="header-doctor-display" style="display:none">
       <div class="header-doctor" id="header-doctor-name"></div>
     </div>
@@ -519,6 +547,12 @@
 
 <!-- CALCULATE PAGE -->
 <div class="page active" id="page-calc">
+  <!-- Mini sync bar -->
+  <div class="mini-sync-bar" id="msb-calc" onclick="syncNow()">
+    <div class="msb-dot" id="msb-dot-calc"></div>
+    <div class="msb-text" id="msb-text-calc">Not synced</div>
+    <button class="msb-btn" onclick="event.stopPropagation();syncNow()">⟳ Sync</button>
+  </div>
 
   <!-- SESSION TABS BAR -->
   <div class="card" id="session-tabs-card" style="padding:0;overflow:hidden">
@@ -633,6 +667,11 @@
 </div>
 <!-- MEDS PAGE -->
 <div class="page" id="page-meds">
+  <div class="mini-sync-bar" id="msb-meds" onclick="syncNow()">
+    <div class="msb-dot" id="msb-dot-meds"></div>
+    <div class="msb-text" id="msb-text-meds">Not synced</div>
+    <button class="msb-btn" onclick="event.stopPropagation();syncNow()">⟳ Sync</button>
+  </div>
   <div class="section-header">
     <div class="section-title">Medications</div>
     <button class="btn btn-primary btn-sm" onclick="openAddModal()">+ Add</button>
@@ -653,6 +692,11 @@
 
 <!-- PATIENTS PAGE -->
 <div class="page" id="page-patients">
+  <div class="mini-sync-bar" id="msb-patients" onclick="syncNow()">
+    <div class="msb-dot" id="msb-dot-patients"></div>
+    <div class="msb-text" id="msb-text-patients">Not synced</div>
+    <button class="msb-btn" onclick="event.stopPropagation();syncNow()">⟳ Sync</button>
+  </div>
 
   <!-- Follow-up banner (filled by JS) -->
   <div id="followup-banner-wrap"></div>
@@ -666,7 +710,7 @@
 
   <div class="search-bar">
     <span class="search-icon">🔍</span>
-    <input type="text" id="patients-search" placeholder="Search patients or owners..." oninput="onPatientsSearch()">
+    <input type="text" id="patients-search" placeholder="Search by name, ID, phone, breed..." oninput="onPatientsSearch()">
   </div>
 
   <!-- Patient filters (shown in patients view) -->
@@ -675,6 +719,17 @@
     <button class="tab" id="pf-dog" onclick="setPatientFilter('dog')">🐶 Dogs</button>
     <button class="tab" id="pf-cat" onclick="setPatientFilter('cat')">🐱 Cats</button>
     <button class="tab" id="pf-followup" onclick="setPatientFilter('followup')">📅 Due</button>
+    <button class="tab" id="pf-day" onclick="setPatientFilter('day')">📆 By Day</button>
+  </div>
+
+  <!-- Day picker (shown when "By Day" tab is active) -->
+  <div id="patient-day-picker" style="display:none;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 13px">
+      <span style="font-size:14px">📆</span>
+      <input type="date" id="patient-day-input" style="flex:1;background:transparent;border:none;color:var(--text);font-family:var(--sans);font-size:13px;font-weight:700;outline:none" oninput="renderPatientList()">
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('patient-day-input').value=new Date().toISOString().slice(0,10);renderPatientList()">Today</button>
+    </div>
+    <div id="day-picker-summary" style="margin-top:8px;font-size:12px;color:var(--muted);padding:0 4px"></div>
   </div>
 
   <div id="patient-list"></div>
@@ -690,6 +745,11 @@
 
 <!-- HISTORY PAGE -->
 <div class="page" id="page-history">
+  <div class="mini-sync-bar" id="msb-history" onclick="syncNow()">
+    <div class="msb-dot" id="msb-dot-history"></div>
+    <div class="msb-text" id="msb-text-history">Not synced</div>
+    <button class="msb-btn" onclick="event.stopPropagation();syncNow()">⟳ Sync</button>
+  </div>
   <div class="section-header">
     <div class="section-title">History</div>
     <button class="btn btn-danger btn-sm" onclick="clearHistory()">Clear All</button>
@@ -811,6 +871,9 @@
     <div style="display:flex;gap:7px;margin-bottom:7px">
       <button class="btn btn-primary btn-sm" style="flex:1" onclick="saveGitHubSettings()">Save & Connect</button>
       <button class="btn btn-secondary btn-sm" style="flex:1" onclick="pullFromGist()">⬇ Pull from Cloud</button>
+    </div>
+    <div style="display:flex;gap:7px;margin-bottom:7px">
+      <button class="btn btn-warn btn-sm" style="flex:1" onclick="resetGistId()">🗑 Delete Backup & Create New</button>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-top:9px;line-height:1.6">All data (patients, meds, history) is stored in a single private Gist as JSON. Token needs <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">gist</code> scope only. Create at <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">github.com/settings/tokens</code> — use a Classic token (not fine-grained) for best compatibility.</div>
   </div>
@@ -940,6 +1003,7 @@
   <div class="modal-tabs" id="patient-modal-tabs">
     <button class="modal-tab active" onclick="switchPatientModalTab('info')">🐾 Pet Info</button>
     <button class="modal-tab" onclick="switchPatientModalTab('owner')">👤 Owner</button>
+    <button class="modal-tab" onclick="switchPatientModalTab('vaccines')">💉 Vaccines</button>
     <button class="modal-tab" onclick="switchPatientModalTab('history')">📋 Medical History</button>
   </div>
 
@@ -993,9 +1057,22 @@
   <!-- Medical History -->
   <div class="modal-section" id="pmt-history">
     <div class="field"><label>PREVIOUS DISEASES</label><textarea id="pm-prev-diseases" rows="2" style="resize:none" placeholder="e.g. Parvovirus (2022), skin allergies"></textarea></div>
-    <div class="field"><label>VACCINATION STATUS</label><textarea id="pm-vaccines" rows="2" style="resize:none" placeholder="e.g. Core vaccines up to date, last booster March 2024"></textarea></div>
     <div class="field"><label>CURRENT MEDICATIONS</label><textarea id="pm-current-meds" rows="2" style="resize:none" placeholder="e.g. Phenobarbitone 30mg BID (epilepsy)"></textarea></div>
     <div class="field"><label>ALLERGIES</label><input type="text" id="pm-allergies" placeholder="e.g. Penicillin, sulfonamides"></div>
+  </div>
+
+  <!-- Vaccines tab in patient modal -->
+  <div class="modal-section" id="pmt-vaccines">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Records here combine with visit vaccine records to show the full status on the patient card.</div>
+    <div id="pm-vacc-rows"></div>
+    <div style="display:flex;gap:7px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" style="flex:1;min-width:120px" onclick="addPatientVaccRow('vaccine')">+ Vaccine</button>
+      <button class="btn btn-secondary btn-sm" style="flex:1;min-width:120px" onclick="addPatientVaccRow('deworming')">+ Deworming</button>
+    </div>
+    <div style="display:flex;gap:7px;margin-top:7px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" style="flex:1;min-width:120px" onclick="addPatientVaccRow('anti-flea')">+ Anti-flea</button>
+      <button class="btn btn-secondary btn-sm" style="flex:1;min-width:120px" onclick="addPatientVaccRow('other')">+ Other</button>
+    </div>
   </div>
 
   <button class="btn btn-primary" style="margin-top:14px;margin-bottom:10px" onclick="savePatient()">Save Patient</button>
@@ -1163,11 +1240,18 @@
 
   <!-- Vaccines -->
   <div class="modal-section" id="vmt-vaccines">
-    <div class="soap-label" style="margin-bottom:9px">💉 Vaccination Record</div>
+    <div class="soap-label" style="margin-bottom:9px">💉 Preventive Care Record</div>
     <div id="vacc-rows">
       <!-- Rendered by JS -->
     </div>
-    <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="addVaccineRow()">+ Add Vaccine</button>
+    <div style="display:flex;gap:7px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" style="flex:1;min-width:100px" onclick="addVaccineRow('vaccine')">+ Vaccine</button>
+      <button class="btn btn-secondary btn-sm" style="flex:1;min-width:100px" onclick="addVaccineRow('deworming')">+ Deworming</button>
+    </div>
+    <div style="display:flex;gap:7px;margin-top:7px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" style="flex:1;min-width:100px" onclick="addVaccineRow('anti-flea')">+ Anti-flea</button>
+      <button class="btn btn-secondary btn-sm" style="flex:1;min-width:100px" onclick="addVaccineRow('other')">+ Other</button>
+    </div>
   </div>
 
   <!-- Follow-up scheduling -->
@@ -1859,6 +1943,29 @@ function routeBadge(route) {
 }
 
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+// ─── MEMORABLE PATIENT ID ─────────────────────────────────
+// Format: DOG-BUDD-042  (species · name slice · 3-digit counter)
+function generatePatientId(name, species) {
+  const prefix = { dog: 'DOG', cat: 'CAT', bird: 'BRD', rabbit: 'RBT', reptile: 'REP', exotic: 'EXO' }[species] || 'PET';
+  const namePart = (name || 'PET').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4).padEnd(4, 'X');
+  // Count existing IDs with same prefix+name to make counter unique
+  const existing = patients.filter(p => p.pid && p.pid.startsWith(prefix + '-' + namePart)).length;
+  const counter = String(existing + 1).padStart(3, '0');
+  return `${prefix}-${namePart}-${counter}`;
+}
+
+// Backfill memorable PIDs for patients that only have uid() style IDs
+function backfillPatientPids() {
+  let changed = false;
+  patients.forEach(p => {
+    if (!p.pid) {
+      p.pid = generatePatientId(p.name, p.species);
+      changed = true;
+    }
+  });
+  if (changed) savePatients();
+}
 function speciesLabel(s) { return s==='both'?'🐾 Both':s==='dog'?'🐶 Dog':'🐱 Cat'; }
 function routesForSpecies(med, species) {
   if (!species) return med.routes;
@@ -1904,7 +2011,7 @@ function getKnownPatients() {
   patients.forEach(p => {
     seen.add(p.name.toLowerCase());
     const histCount = calcHistory.filter(h => h.patientId && h.patientId.toLowerCase() === p.name.toLowerCase()).length;
-    result.push({ id: p.name, pid: p.id, count: histCount, registered: true, species: p.species, weight: p.weight });
+    result.push({ id: p.name, internalId: p.id, pid: p.pid || null, count: histCount, registered: true, species: p.species, weight: p.weight });
   });
   // Also include any historical patient IDs not in the registered list
   const counts = {};
@@ -1912,7 +2019,7 @@ function getKnownPatients() {
     if (h.patientId) counts[h.patientId] = (counts[h.patientId]||0) + 1;
   });
   Object.entries(counts).forEach(([id, count]) => {
-    if (!seen.has(id.toLowerCase())) result.push({ id, pid: null, count, registered: false });
+    if (!seen.has(id.toLowerCase())) result.push({ id, internalId: null, pid: null, count, registered: false });
   });
   return result.sort((a,b) => {
     if (a.registered && !b.registered) return -1;
@@ -1927,14 +2034,14 @@ function patientSuggItem(p) {
   const sp = p.registered ? p.species : getPatientSpecies(p.id);
   const icon = sp === 'dog' ? '🐶' : sp === 'cat' ? '🐱' : '🐾';
   const badge = p.registered ? '<span style="font-size:9px;background:rgba(74,240,176,0.15);color:var(--accent);border:1px solid rgba(74,240,176,0.3);border-radius:4px;padding:1px 5px;margin-left:4px">REG</span>' : '';
-  const esc = p.id.replace(/'/g, "\'");
-  return `<div class="patient-suggestion-item" onmousedown="pickPatient('${esc}')">${icon} ${p.id}${badge}<span class="ps-count">${p.count} calc${p.count!==1?'s':''}</span></div>`;
+  const pidBadge = p.pid ? `<span style="font-size:9px;color:var(--accent2);margin-left:5px;opacity:0.8">🪪 ${p.pid}</span>` : '';
+  const esc = p.id.replace(/'/g, "\\'");
+  return `<div class="patient-suggestion-item" onmousedown="pickPatient('${esc}')">${icon} ${p.id}${badge}${pidBadge}<span class="ps-count">${p.count} calc${p.count!==1?'s':''}</span></div>`;
 }
 
 function onPatientInput() {
   const q = document.getElementById('calc-patient-id').value.trim().toLowerCase();
   const sugg = document.getElementById('patient-suggestions');
-  // Clear banner if field emptied
   if (!q) {
     const banner = document.getElementById('calc-patient-banner');
     if (banner) banner.innerHTML = '';
@@ -1942,7 +2049,23 @@ function onPatientInput() {
     if (saveBtn) saveBtn.style.display = 'none';
     sugg.classList.remove('open'); return;
   }
-  const list = getKnownPatients().filter(p => p.id.toLowerCase().includes(q) && p.id.toLowerCase() !== q);
+  const qPhone = q.replace(/\s+/g,'');
+  const list = getKnownPatients().filter(p => {
+    if (p.id.toLowerCase().includes(q)) return true;
+    if (p.pid && p.pid.toLowerCase().includes(q)) return true;
+    // Search owner phone for registered patients
+    if (p.registered) {
+      const pat = patients.find(x => x.id === p.internalId || x.name.toLowerCase() === p.id.toLowerCase());
+      if (pat) {
+        const o = pat.ownerId ? owners.find(x => x.id === pat.ownerId) : null;
+        const phone = (o?.phone || pat.ownerPhone || '').replace(/\s+/g,'');
+        if (phone && phone.includes(qPhone)) return true;
+        if ((pat.breed||'').toLowerCase().includes(q)) return true;
+        if ((pat.chip||'').toLowerCase().includes(q)) return true;
+      }
+    }
+    return false;
+  }).filter(p => p.id.toLowerCase() !== q);
   if (!list.length) { sugg.classList.remove('open'); return; }
   sugg.innerHTML = list.slice(0,8).map(patientSuggItem).join('');
   sugg.classList.add('open');
@@ -4279,12 +4402,42 @@ async function loadPatients() {
   }
 }
 
+function copyPid(pid) {
+  navigator.clipboard?.writeText(pid).catch(()=>{});
+  toast(`📋 Copied: ${pid}`);
+}
+
 // ─── PATIENT FILTER ──────────────────────────────────────
 function setPatientFilter(f) {
   patientFilter = f;
   document.querySelectorAll('[id^="pf-"]').forEach(b => b.classList.remove('active'));
   document.getElementById('pf-'+f)?.classList.add('active');
+  const dayPicker = document.getElementById('patient-day-picker');
+  if (dayPicker) dayPicker.style.display = f === 'day' ? 'block' : 'none';
+  if (f === 'day') {
+    const inp = document.getElementById('patient-day-input');
+    if (inp && !inp.value) inp.value = new Date().toISOString().slice(0,10);
+  }
   renderPatientList();
+}
+
+// Full-text patient match — searches name, pid, owner name, phone, breed, chip, color, species
+function patientMatchesQuery(p, q) {
+  if (!q) return true;
+  const o = p.ownerId ? owners.find(x => x.id === p.ownerId) : null;
+  const ownerName = (o?.name || p.ownerName || '').toLowerCase();
+  const ownerPhone = (o?.phone || p.ownerPhone || '').replace(/\s+/g,'');
+  const qPhone = q.replace(/\s+/g,'');
+  return (
+    (p.name||'').toLowerCase().includes(q) ||
+    (p.pid||'').toLowerCase().includes(q) ||
+    ownerName.includes(q) ||
+    ownerPhone.includes(qPhone) ||
+    (p.breed||'').toLowerCase().includes(q) ||
+    (p.chip||'').toLowerCase().includes(q) ||
+    (p.color||'').toLowerCase().includes(q) ||
+    (p.species||'').toLowerCase().includes(q)
+  );
 }
 
 // ─── RENDER PATIENT LIST ─────────────────────────────────
@@ -4294,18 +4447,59 @@ function renderPatientList() {
   const q = (document.getElementById('patients-search')?.value||'').trim().toLowerCase();
   const today = new Date(); today.setHours(0,0,0,0);
 
+  // Day-picker mode
+  if (patientFilter === 'day') {
+    const dayVal = document.getElementById('patient-day-input')?.value;
+    const dayDate = dayVal ? new Date(dayVal) : new Date();
+    dayDate.setHours(0,0,0,0);
+    const dayLabel = dayDate.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+    const isToday = dayDate.getTime() === today.getTime();
+
+    const duePatients = patients.filter(p => {
+      if (!patientMatchesQuery(p, q)) return false;
+      return patientHasDueOnDay(p, dayDate);
+    });
+
+    // Build summary
+    let totalRechecks = 0, totalVaccines = 0;
+    duePatients.forEach(p => {
+      const d = getDueOnDay(p, dayDate);
+      totalRechecks += d.rechecks.length;
+      totalVaccines += d.vaccinesDue.length;
+    });
+    const summaryEl = document.getElementById('day-picker-summary');
+    if (summaryEl) {
+      summaryEl.textContent = duePatients.length
+        ? `${duePatients.length} patient${duePatients.length!==1?'s':''} · ${totalRechecks} recheck${totalRechecks!==1?'s':''} · ${totalVaccines} vaccine${totalVaccines!==1?'s':''} due`
+        : isToday ? 'Nothing due today 🎉' : 'Nothing due on this day';
+    }
+
+    if (!duePatients.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">📆</div><div class="empty-text">${isToday ? 'Nothing due today' : 'Nothing due on ' + dayLabel}</div></div>`;
+      return;
+    }
+
+    el.innerHTML = duePatients.map(p => {
+      const d = getDueOnDay(p, dayDate);
+      return renderPatientCard(p, { dayDue: d, dayDate });
+    }).join('');
+    renderFollowupBanner();
+    return;
+  }
+
   let list = patients.filter(p => {
-    if (q && !p.name.toLowerCase().includes(q) && !(p.ownerName||'').toLowerCase().includes(q) && !(p.breed||'').toLowerCase().includes(q)) return false;
+    if (!patientMatchesQuery(p, q)) return false;
     if (patientFilter === 'dog' && p.species !== 'dog') return false;
     if (patientFilter === 'cat' && p.species !== 'cat') return false;
     if (patientFilter === 'followup') {
-      const due = getDueVisit(p);
-      if (!due) return false;
+      // Show if has overdue/today recheck OR overdue vaccine
+      const hasDueRecheck = !!getDueVisit(p);
+      const hasOverdueVacc = getPatientVaccineStatus(p).some(v => v.status === 'due' || v.status === 'soon');
+      if (!hasDueRecheck && !hasOverdueVacc) return false;
     }
     return true;
   });
 
-  // Sort: overdue first, then alphabetical
   list.sort((a,b) => {
     const da = getDueVisit(a); const db2 = getDueVisit(b);
     if (da && !db2) return -1; if (!da && db2) return 1;
@@ -4313,12 +4507,11 @@ function renderPatientList() {
   });
 
   if (!list.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">${patientFilter==='followup'?'📅':'🐾'}</div><div class="empty-text">${q?'No patients found':'No patients yet. Add your first patient!'}</div></div>`;
+    const hint = q ? `<div style="font-size:12px;color:var(--muted);margin-top:6px">Try searching by name, ID (e.g. DOG-BUDD-001), phone, or breed</div>` : '';
+    el.innerHTML = `<div class="empty"><div class="empty-icon">${patientFilter==='followup'?'📅':'🐾'}</div><div class="empty-text">${q?'No patients found':patientFilter==='followup'?'No patients due — all up to date! 🎉':'No patients yet. Add your first patient!'}</div>${hint}</div>`;
     return;
   }
   el.innerHTML = list.map(p => renderPatientCard(p)).join('');
-
-  // Render follow-up banner
   renderFollowupBanner();
 }
 
@@ -4334,6 +4527,43 @@ function getDueVisit(p) {
   return null;
 }
 
+// Returns {rechecks, vaccines} due on a specific date (Date object, midnight)
+function getDueOnDay(p, targetDay) {
+  const t = new Date(targetDay); t.setHours(0,0,0,0);
+  const rechecks = (p.visits||[]).filter(v => {
+    if (!v.recheckDate) return false;
+    const d = new Date(v.recheckDate); d.setHours(0,0,0,0);
+    return d.getTime() === t.getTime();
+  });
+  // Vaccine dues on this day
+  const vaccStatus = getPatientVaccineStatus(p);
+  const vaccinesDue = vaccStatus.filter(v => {
+    if (!v.nextDate) return false;
+    const d = new Date(v.nextDate); d.setHours(0,0,0,0);
+    return d.getTime() === t.getTime();
+  });
+  return { rechecks, vaccinesDue };
+}
+
+// Whether a patient has anything due on a specific day (or before it for overdue)
+function patientHasDueOnDay(p, targetDay) {
+  const t = new Date(targetDay); t.setHours(0,0,0,0);
+  // Rechecks due on or before this day
+  const hasRecheck = (p.visits||[]).some(v => {
+    if (!v.recheckDate) return false;
+    const d = new Date(v.recheckDate); d.setHours(0,0,0,0);
+    return d.getTime() === t.getTime();
+  });
+  if (hasRecheck) return true;
+  // Vaccines due on this day
+  const vaccStatus = getPatientVaccineStatus(p);
+  return vaccStatus.some(v => {
+    if (!v.nextDate) return false;
+    const d = new Date(v.nextDate); d.setHours(0,0,0,0);
+    return d.getTime() === t.getTime();
+  });
+}
+
 function getNextFollowup(p) {
   if (!p.visits || !p.visits.length) return null;
   const today = new Date(); today.setHours(0,0,0,0);
@@ -4347,15 +4577,27 @@ function getNextFollowup(p) {
   return nearest;
 }
 
-function renderPatientCard(p) {
+function renderPatientCard(p, opts = {}) {
   const icon = p.species === 'dog' ? '🐶' : p.species === 'cat' ? '🐱' : '🐾';
   const due = getDueVisit(p);
-  const lastVisit = p.visits && p.visits.length ? p.visits[p.visits.length-1] : null;
   const today = new Date(); today.setHours(0,0,0,0);
+
+  // Vaccine status summary for the card
+  const vaccStatus = getPatientVaccineStatus(p);
+  const overdueVacc = vaccStatus.filter(v => v.status === 'due');
+  const soonVacc    = vaccStatus.filter(v => v.status === 'soon');
+  const okVacc      = vaccStatus.filter(v => v.status === 'ok');
+  let vaccTag = '';
+  if (overdueVacc.length)
+    vaccTag = `<span class="ptag followup overdue">💉 ${overdueVacc.length} vaccine${overdueVacc.length>1?'s':''} overdue</span>`;
+  else if (soonVacc.length)
+    vaccTag = `<span class="ptag followup">💉 ${soonVacc.length} vaccine${soonVacc.length>1?'s':''} due soon</span>`;
+  else if (okVacc.length)
+    vaccTag = `<span class="ptag" style="background:rgba(74,240,176,0.1);color:var(--accent);border:1px solid rgba(74,240,176,0.25)">💉 Vaccinated ✓</span>`;
+
   let followupTag = '';
   if (due) {
     const d = new Date(due.recheckDate); d.setHours(0,0,0,0);
-    const isToday = d.getTime() === today.getTime();
     const isOverdue = d < today;
     followupTag = `<span class="ptag followup ${isOverdue?'overdue':''}">
       ${isOverdue ? '⚠ Overdue' : '📅 Due today'}: ${due.recheckReason||'Recheck'}
@@ -4367,6 +4609,31 @@ function renderPatientCard(p) {
       followupTag = `<span class="ptag followup">📅 ${dNext.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}: ${next.recheckReason||'Recheck'}</span>`;
     }
   }
+
+  // In "By Day" mode show what's specifically due on that day
+  let dayDueSection = '';
+  if (opts.dayDue) {
+    const { rechecks, vaccinesDue } = opts.dayDue;
+    const dayDate = opts.dayDate;
+    const parts = [];
+    rechecks.forEach(v => parts.push(`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:14px">📅</span>
+      <div><div style="font-size:12px;font-weight:700">Recheck: ${v.recheckReason||'Follow-up'}</div>
+      ${v.complaint?`<div style="font-size:11px;color:var(--muted)">${v.complaint}</div>`:''}
+      </div></div>`));
+    vaccinesDue.forEach(v => parts.push(`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:14px">💉</span>
+      <div><div style="font-size:12px;font-weight:700">${v.name}</div>
+      <div style="font-size:11px;color:var(--muted)">Vaccine due</div></div></div>`));
+    if (parts.length) {
+      dayDueSection = `<div style="background:rgba(240,168,74,0.07);border:1px solid rgba(240,168,74,0.2);border-radius:8px;padding:6px 10px;margin-top:8px">${parts.join('')}</div>`;
+    }
+  }
+
+  const o = p.ownerId ? owners.find(x => x.id === p.ownerId) : null;
+  const ownerName = o?.name || p.ownerName || '';
+  const ownerPhone = o?.phone || p.ownerPhone || '';
+
   return `
   <div class="patient-card" onclick="openPatientDetail('${p.id}')">
     <div class="patient-card-top">
@@ -4375,17 +4642,21 @@ function renderPatientCard(p) {
         <div class="patient-name">${p.name}</div>
         <div class="patient-breed">${[p.breed,p.sex?sexLabel(p.sex):'',p.age].filter(Boolean).join(' · ')}</div>
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0">
+      <div style="display:flex;gap:6px;flex-shrink:0;align-items:center">
         <button class="icon-btn edit" onclick="event.stopPropagation();openEditPatientModal('${p.id}')" title="Edit">✏️</button>
         <button class="icon-btn del" onclick="event.stopPropagation();deletePatient('${p.id}')" title="Delete">🗑</button>
       </div>
     </div>
     <div class="patient-tags">
-      ${(()=>{const o=p.ownerId?owners.find(x=>x.id===p.ownerId):null;return o?`<span class="ptag species">👤 ${o.name}</span>`:p.ownerName?`<span class="ptag species">👤 ${p.ownerName}</span>`:''})()}
+      ${p.pid ? `<span onclick="event.stopPropagation();copyPid('${p.pid}')" title="Tap to copy ID" style="font-size:10px;font-weight:800;background:rgba(74,159,240,0.13);color:var(--accent2);border:1px solid rgba(74,159,240,0.3);border-radius:6px;padding:3px 7px;cursor:pointer;letter-spacing:0.5px;white-space:nowrap">🪪 ${p.pid}</span>` : ''}
+      ${ownerName ? `<span class="ptag species">👤 ${ownerName}</span>` : ''}
+      ${ownerPhone ? `<span class="ptag species">📞 ${ownerPhone}</span>` : ''}
       ${p.visits && p.visits.length ? `<span class="ptag visits">📋 ${p.visits.length} visit${p.visits.length!==1?'s':''}</span>` : ''}
       ${p.weight ? `<span class="ptag species">⚖️ ${p.weight}kg</span>` : ''}
+      ${vaccTag}
       ${followupTag}
     </div>
+    ${dayDueSection}
   </div>`;
 }
 
@@ -4398,25 +4669,33 @@ function renderFollowupBanner() {
   const el = document.getElementById('followup-banner-wrap');
   if (!el) return;
   const today = new Date(); today.setHours(0,0,0,0);
-  const due = [];
+  const dueItems = [];
+
   patients.forEach(p => {
+    // Rechecks overdue or today
     const v = getDueVisit(p);
-    if (v) due.push({ patient: p, visit: v });
+    if (v) dueItems.push({ patient: p, type: 'recheck', label: v.recheckReason||'Recheck', visit: v });
+    // Vaccines overdue
+    getPatientVaccineStatus(p).forEach(vs => {
+      if (vs.status === 'due') dueItems.push({ patient: p, type: 'vaccine', label: vs.name, daysLeft: vs.daysLeft });
+    });
   });
-  if (!due.length) { el.innerHTML = ''; return; }
+
+  if (!dueItems.length) { el.innerHTML = ''; return; }
   el.innerHTML = `<div class="followup-banner">
-    <div class="followup-banner-title">📅 ${due.length} patient${due.length!==1?'s':''} due for follow-up</div>
-    ${due.map(({patient:p, visit:v}) => {
-      const d = new Date(v.recheckDate); d.setHours(0,0,0,0);
-      const isOverdue = d < today;
+    <div class="followup-banner-title">⚠️ ${dueItems.length} item${dueItems.length!==1?'s':''} need attention</div>
+    ${dueItems.slice(0,6).map(({patient:p, type, label, visit, daysLeft}) => {
+      const d = type === 'recheck' ? new Date(visit.recheckDate) : null;
+      const isOverdue = type === 'recheck' ? (d && d < today) : (daysLeft !== null && daysLeft < 0);
       return `<div class="followup-item" onclick="openPatientDetail('${p.id}')">
         <div>
-          <div class="followup-item-name">${p.name}</div>
-          <div class="followup-item-detail">${v.recheckReason||'Recheck'}</div>
+          <div class="followup-item-name">${type==='vaccine'?'💉':'📅'} ${p.name}</div>
+          <div class="followup-item-detail">${label}</div>
         </div>
-        ${isOverdue ? `<span class="overdue-badge">Overdue</span>` : `<span style="font-size:11px;color:var(--warn)">Today</span>`}
+        <span class="${isOverdue?'overdue-badge':'vacc-badge soon'}">${isOverdue ? 'Overdue' : type==='vaccine'?'Due':'Today'}</span>
       </div>`;
     }).join('')}
+    ${dueItems.length > 6 ? `<div style="font-size:11px;color:var(--muted);text-align:center;padding-top:4px">+${dueItems.length-6} more — tap 📅 Due to see all</div>` : ''}
   </div>`;
 }
 
@@ -4443,17 +4722,42 @@ function openPatientDetail(pid) {
     </div>
   </div>
 
-  <!-- Vaccine reminder banner -->
+  <!-- Vaccine status card -->
   ${(()=>{
     const vStatus = getPatientVaccineStatus(p);
-    const alerts = vStatus.filter(v => v.status === 'due' || v.status === 'soon');
-    if (!alerts.length) return '';
-    return `<div class="followup-banner" style="margin-bottom:10px">
-      <div class="followup-banner-title">💉 Vaccination Reminders</div>
-      ${alerts.map(v => `<div class="followup-item">
-        <div><div class="followup-item-name">${v.name}</div><div class="followup-item-detail">${v.status==='due'?'Overdue!':'Due in '+v.daysLeft+' days'}</div></div>
-        <span class="${v.status==='due'?'overdue-badge':'vacc-badge soon'}">${v.status==='due'?'Overdue':'Soon'}</span>
-      </div>`).join('')}
+    const overdue = vStatus.filter(v => v.status === 'due');
+    const soon    = vStatus.filter(v => v.status === 'soon');
+    const ok      = vStatus.filter(v => v.status === 'ok');
+    const none    = vStatus.filter(v => v.status === 'none');
+    const headerColor = overdue.length ? 'var(--danger)' : soon.length ? 'var(--warn)' : vStatus.length ? 'var(--accent)' : 'var(--muted)';
+    const headerIcon  = overdue.length ? '⚠️' : soon.length ? '⏰' : vStatus.length ? '✅' : '💉';
+    const headerText  = overdue.length ? `${overdue.length} item${overdue.length>1?'s':''} overdue`
+                      : soon.length    ? `${soon.length} item${soon.length>1?'s':''} due soon`
+                      : vStatus.length ? 'All up to date' : 'No records yet';
+    return `<div class="card" style="margin-bottom:10px;border-color:${overdue.length?'rgba(240,74,106,0.4)':soon.length?'rgba(240,168,74,0.4)':'var(--border)'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="card-title" style="color:${headerColor}">${headerIcon} Preventive Care</div>
+        <span style="font-size:11px;color:${headerColor};font-weight:700">${headerText}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${vStatus.length ? vStatus.map(v => {
+          const dotColor = v.status==='due'?'var(--danger)':v.status==='soon'?'var(--warn)':v.status==='ok'?'var(--accent)':'var(--muted)';
+          const statusLabel = v.status==='due' ? `⚠ Overdue ${Math.abs(v.daysLeft)}d` :
+                              v.status==='soon'? `Due in ${v.daysLeft}d` :
+                              v.status==='ok'  ? (v.nextDate ? 'Due '+new Date(v.nextDate).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : 'Up to date') :
+                              'Not recorded';
+          const typeIcon = vaccTypeIcon(v.type||'vaccine');
+          return `<div style="display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+            <span style="font-size:15px">${typeIcon}</span>
+            <div style="flex:1;font-size:13px;font-weight:600;min-width:0">${v.name}</div>
+            <div style="font-size:11px;color:${dotColor};font-weight:700;white-space:nowrap">${statusLabel}</div>
+          </div>`;
+        }).join('') : '<div style="color:var(--muted);font-size:12px;text-align:center;padding:8px 0">No records — add via Edit Patient or a visit</div>'}
+      </div>
+      <div style="display:flex;gap:7px;margin-top:10px">
+        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="openEditPatientModal('${p.id}');setTimeout(()=>switchPatientModalTab('vaccines'),200)">✏️ Edit Records</button>
+        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="openNewVisitModal('${p.id}');setTimeout(()=>switchVisitModalTab('vaccines'),200)">+ Visit Record</button>
+      </div>
     </div>`;
   })()}
 
@@ -4679,9 +4983,11 @@ function openEditPatientModal(pid) {
   setVal('pm-owner-address', p.ownerAddress||'');
   setVal('pm-owner-notes', p.ownerNotes||'');
   setVal('pm-prev-diseases', p.prevDiseases||'');
-  setVal('pm-vaccines', p.vaccines||'');
   setVal('pm-current-meds', p.currentMeds||'');
   setVal('pm-allergies', p.allergies||'');
+  // Load vaccine records into temp array for the vaccines tab
+  tempPatientVaccs = JSON.parse(JSON.stringify(p.vaccineRecords || []));
+  renderPatientVaccRows();
   document.getElementById('patient-modal').classList.add('show');
   switchPatientModalTab('info');
 }
@@ -4689,26 +4995,31 @@ function openEditPatientModal(pid) {
 function clearPatientModal() {
   ['pm-name','pm-breed','pm-age','pm-weight','pm-color','pm-chip',
    'pm-owner-name','pm-owner-phone','pm-owner-address','pm-owner-notes',
-   'pm-prev-diseases','pm-vaccines','pm-current-meds','pm-allergies'].forEach(id => setVal(id,''));
+   'pm-prev-diseases','pm-current-meds','pm-allergies'].forEach(id => setVal(id,''));
   setVal('pm-species','dog'); setVal('pm-sex','male');
+  tempPatientVaccs = [];
+  renderPatientVaccRows();
 }
 
 function switchPatientModalTab(tab) {
   patientModalTab = tab;
+  const tabs = ['info','owner','vaccines','history'];
   document.querySelectorAll('#patient-modal .modal-tab').forEach((b,i) => {
-    const tabs = ['info','owner','history'];
     b.classList.toggle('active', tabs[i]===tab);
   });
   document.querySelectorAll('#patient-modal .modal-section').forEach(s => s.classList.remove('active'));
   document.getElementById('pmt-'+tab)?.classList.add('active');
+  if (tab === 'vaccines') renderPatientVaccRows();
 }
 
 function savePatient() {
   const name = gv('pm-name').trim();
   if (!name) { toast('Please enter the pet name', 'error'); return; }
   const selectedOwnerId = document.getElementById('pm-owner-select')?.value || null;
+  const isNew = !editingPatientId;
   const p = {
     id: editingPatientId || uid(),
+    pid: null, // set below
     name, species: gv('pm-species'), sex: gv('pm-sex'),
     breed: gv('pm-breed'), age: gv('pm-age'),
     ownerId: selectedOwnerId || null,
@@ -4716,19 +5027,25 @@ function savePatient() {
     color: gv('pm-color'), chip: gv('pm-chip'),
     ownerName: gv('pm-owner-name'), ownerPhone: gv('pm-owner-phone'),
     ownerAddress: gv('pm-owner-address'), ownerNotes: gv('pm-owner-notes'),
-    prevDiseases: gv('pm-prev-diseases'), vaccines: gv('pm-vaccines'),
+    prevDiseases: gv('pm-prev-diseases'),
+    vaccineRecords: tempPatientVaccs.filter(v => v.name || v.date),
     currentMeds: gv('pm-current-meds'), allergies: gv('pm-allergies'),
     visits: [], createdAt: new Date().toISOString()
   };
   if (editingPatientId) {
     const existing = patients.find(x => x.id === editingPatientId);
-    if (existing) { p.visits = existing.visits || []; p.createdAt = existing.createdAt; }
+    if (existing) {
+      p.visits = existing.visits || [];
+      p.createdAt = existing.createdAt;
+      p.pid = existing.pid || generatePatientId(name, p.species); // keep existing pid
+    }
     const idx = patients.findIndex(x => x.id === editingPatientId);
     if (idx >= 0) patients[idx] = p; else patients.push(p);
     toast('✅ Patient updated');
   } else {
+    p.pid = generatePatientId(name, p.species);
     patients.push(p);
-    toast('✅ Patient added');
+    toast(`✅ Patient added · ID: ${p.pid}`);
   }
   savePatients();
   document.getElementById('patient-modal').classList.remove('show');
@@ -5112,8 +5429,10 @@ function openEditPatientModal(pid) {
   setVal('pm-owner-name', p.ownerName||''); setVal('pm-owner-phone', p.ownerPhone||'');
   setVal('pm-owner-whatsapp', p.ownerWhatsapp||''); setVal('pm-owner-address', p.ownerAddress||'');
   setVal('pm-owner-notes', p.ownerNotes||'');
-  setVal('pm-prev-diseases', p.prevDiseases||''); setVal('pm-vaccines', p.vaccines||'');
+  setVal('pm-prev-diseases', p.prevDiseases||'');
   setVal('pm-current-meds', p.currentMeds||''); setVal('pm-allergies', p.allergies||'');
+  tempPatientVaccs = JSON.parse(JSON.stringify(p.vaccineRecords || []));
+  renderPatientVaccRows();
   populateOwnerDropdown();
   if (p.ownerId) { setVal('pm-owner-select', p.ownerId); onOwnerSelectChange(); }
   document.getElementById('patient-modal').classList.add('show');
@@ -5146,17 +5465,18 @@ function savePatient() {
     ownerName: ownerName || (ownerId ? (owners.find(o=>o.id===ownerId)||{}).name : ''),
     ownerPhone: gv('pm-owner-phone'), ownerWhatsapp: gv('pm-owner-whatsapp'),
     ownerAddress: gv('pm-owner-address'), ownerNotes: gv('pm-owner-notes'),
-    prevDiseases: gv('pm-prev-diseases'), vaccines: gv('pm-vaccines'),
+    prevDiseases: gv('pm-prev-diseases'),
+    vaccineRecords: tempPatientVaccs.filter(v => v.name || v.date),
     currentMeds: gv('pm-current-meds'), allergies: gv('pm-allergies'),
     visits: [], createdAt: new Date().toISOString()
   };
   if (editingPatientId) {
     const existing = patients.find(x => x.id === editingPatientId);
-    if (existing) { p.visits = existing.visits || []; p.createdAt = existing.createdAt; }
+    if (existing) { p.visits = existing.visits || []; p.createdAt = existing.createdAt; p.pid = existing.pid || generatePatientId(name, p.species); }
     const idx = patients.findIndex(x => x.id === editingPatientId);
     if (idx >= 0) patients[idx] = p; else patients.push(p);
     toast('✅ Patient updated');
-  } else { patients.push(p); toast('✅ Patient added'); }
+  } else { p.pid = generatePatientId(name, p.species); patients.push(p); toast('✅ Patient added'); }
   savePatients();
   document.getElementById('patient-modal').classList.remove('show');
   renderPatientList();
@@ -5165,89 +5485,189 @@ function savePatient() {
 
 // ─── VACCINE MODULE ───────────────────────────────────────
 const VACCINES = [
-  { id: 'rabies',    name: 'Rabies',        intervalDays: 365, species: ['dog','cat'] },
-  { id: 'dhppi',    name: 'DHPPi',         intervalDays: 365, species: ['dog'] },
-  { id: 'tricat',   name: 'Tricat',        intervalDays: 365, species: ['cat'] },
-  { id: 'kennel',   name: 'Kennel Cough',  intervalDays: 365, species: ['dog'] },
-  { id: 'felv',     name: 'FeLV',          intervalDays: 365, species: ['cat'] },
-  { id: 'bordetella',name:'Bordetella',    intervalDays: 180, species: ['dog'] },
+  { id: 'rabies',     name: 'Rabies',        intervalDays: 365, species: ['dog','cat'], type: 'vaccine' },
+  { id: 'dhppi',     name: 'DHPPi',          intervalDays: 365, species: ['dog'],       type: 'vaccine' },
+  { id: 'tricat',    name: 'Tricat',         intervalDays: 365, species: ['cat'],       type: 'vaccine' },
+  { id: 'kennel',    name: 'Kennel Cough',   intervalDays: 365, species: ['dog'],       type: 'vaccine' },
+  { id: 'felv',      name: 'FeLV',           intervalDays: 365, species: ['cat'],       type: 'vaccine' },
+  { id: 'bordetella',name: 'Bordetella',     intervalDays: 180, species: ['dog'],       type: 'vaccine' },
 ];
 
-let tempVaccines = []; // working copy while modal is open
+const VACC_TYPE_LABELS = {
+  'vaccine':   { icon: '💉', label: 'Vaccine',    color: 'var(--accent2)' },
+  'deworming': { icon: '🪱', label: 'Deworming',  color: 'var(--warn)' },
+  'anti-flea': { icon: '🦟', label: 'Anti-flea',  color: 'var(--cat)' },
+  'other':     { icon: '💊', label: 'Other',       color: 'var(--muted)' },
+};
 
+function vaccTypeIcon(type) { return (VACC_TYPE_LABELS[type] || VACC_TYPE_LABELS['other']).icon; }
+function vaccTypeColor(type){ return (VACC_TYPE_LABELS[type] || VACC_TYPE_LABELS['other']).color; }
+
+let tempVaccines = []; // working copy while visit modal is open
+let tempPatientVaccs = []; // working copy while patient modal is open
+
+// ── Suggested names per type (for datalist) ──────────────
+function vaccSuggestions(type, species) {
+  if (type === 'vaccine') {
+    const all = VACCINES.filter(v => !species || v.species.includes(species)).map(v => v.name);
+    return all;
+  }
+  if (type === 'deworming') return ['Drontal', 'Panacur', 'Milbemax', 'Profender', 'Cazitel'];
+  if (type === 'anti-flea') return ['Bravecto', 'Frontline', 'Advantage', 'NexGard', 'Revolution', 'Stronghold'];
+  return [];
+}
+
+// ── Default interval per type ────────────────────────────
+function defaultInterval(type) {
+  if (type === 'vaccine')   return 365;
+  if (type === 'deworming') return 90;
+  if (type === 'anti-flea') return 30;
+  return 365;
+}
+
+// ── Render a single vacc row (shared by visit and patient modal) ──
+function renderOneVaccRow(v, i, arrayRef, onDelete) {
+  const type = v.type || 'vaccine';
+  const meta = VACC_TYPE_LABELS[type] || VACC_TYPE_LABELS['other'];
+  const listId = `vacc-suggest-${arrayRef}-${i}`;
+  let badge = '';
+  if (v.date) {
+    const given = new Date(v.date);
+    const interval = v.intervalDays || defaultInterval(type);
+    const next = v.nextDate ? new Date(v.nextDate) : new Date(given.getTime() + interval * 86400000);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const daysLeft = Math.round((next - today) / 86400000);
+    if (daysLeft < 0) badge = `<span class="vacc-badge due">⚠ Overdue ${Math.abs(daysLeft)}d</span>`;
+    else if (daysLeft <= 30) badge = `<span class="vacc-badge soon">Due in ${daysLeft}d</span>`;
+    else badge = `<span class="vacc-badge ok">Due ${next.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>`;
+  } else {
+    badge = `<span class="vacc-badge none">Not recorded</span>`;
+  }
+  const suggestions = vaccSuggestions(type, null).map(s => `<option value="${s}">`).join('');
+  return `<div class="vacc-card" id="vacc-card-${arrayRef}-${i}">
+    <datalist id="${listId}">${suggestions}</datalist>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px">
+      <div style="display:flex;align-items:center;gap:7px;flex:1;min-width:0">
+        <span style="font-size:16px">${meta.icon}</span>
+        <input type="text" value="${escHtml(v.name||'')}" list="${listId}"
+          placeholder="${meta.label} name…"
+          style="flex:1;font-size:13px;font-weight:700;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:2px 4px;color:var(--text);min-width:0"
+          oninput="${arrayRef}[${i}].name=this.value">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        ${badge}
+        <button onclick="${onDelete}(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:15px;padding:2px 4px;opacity:0.7">✕</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+      <div class="field" style="margin-bottom:0">
+        <label>DATE GIVEN</label>
+        <input type="date" value="${v.date||''}" onchange="${arrayRef}[${i}].date=this.value;render${arrayRef==='tempVaccines'?'VaccineRows':'PatientVaccRows'}()">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>NEXT DUE</label>
+        <input type="date" value="${v.nextDate||''}" onchange="${arrayRef}[${i}].nextDate=this.value;render${arrayRef==='tempVaccines'?'VaccineRows':'PatientVaccRows'}()">
+      </div>
+    </div>
+    <div class="field" style="margin-top:7px;margin-bottom:0">
+      <label>NOTES / PRODUCT</label>
+      <input type="text" value="${escHtml(v.notes||'')}" placeholder="e.g. Nobivac, batch #XY, 0.5ml SC" oninput="${arrayRef}[${i}].notes=this.value">
+    </div>
+  </div>`;
+}
+
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+// ── Visit modal vaccine rows ─────────────────────────────
 function renderVaccineRows() {
   const el = document.getElementById('vacc-rows');
   if (!el) return;
   if (!tempVaccines.length) {
-    // Init from current visit if editing
     const pid = currentVisitPatientId;
     const p = patients.find(x => x.id === pid);
     const patSpecies = p?.species || 'dog';
-    const relevantVaccines = VACCINES.filter(v => v.species.includes(patSpecies));
-    if (!tempVaccines.length) tempVaccines = relevantVaccines.map(v => ({ id: v.id, name: v.name, date: '', nextDate: '', notes: '' }));
+    const relevant = VACCINES.filter(v => v.species.includes(patSpecies));
+    tempVaccines = relevant.map(v => ({ id: v.id, name: v.name, type: v.type||'vaccine', date: '', nextDate: '', notes: '', intervalDays: v.intervalDays }));
   }
-  el.innerHTML = tempVaccines.map((v,i) => {
-    const vaccDef = VACCINES.find(x => x.id === v.id);
-    let badge = '', nextInfo = '';
-    if (v.date) {
-      const given = new Date(v.date);
-      const next = v.nextDate ? new Date(v.nextDate) : new Date(given.getTime() + (vaccDef?.intervalDays||365)*86400000);
-      const today = new Date(); today.setHours(0,0,0,0);
-      const daysLeft = Math.round((next - today) / 86400000);
-      if (daysLeft < 0) badge = `<span class="vacc-badge due">⚠ Overdue ${Math.abs(daysLeft)}d</span>`;
-      else if (daysLeft <= 30) badge = `<span class="vacc-badge soon">Due in ${daysLeft}d</span>`;
-      else badge = `<span class="vacc-badge ok">Due ${next.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>`;
-    } else {
-      badge = `<span class="vacc-badge none">Not recorded</span>`;
-    }
-    return `<div class="vacc-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:13px;font-weight:700">💉 ${v.name}</div>
-        ${badge}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
-        <div class="field" style="margin-bottom:0">
-          <label>DATE GIVEN</label>
-          <input type="date" value="${v.date||''}" onchange="tempVaccines[${i}].date=this.value;renderVaccineRows()">
-        </div>
-        <div class="field" style="margin-bottom:0">
-          <label>NEXT DUE (optional)</label>
-          <input type="date" value="${v.nextDate||''}" onchange="tempVaccines[${i}].nextDate=this.value;renderVaccineRows()">
-        </div>
-      </div>
-      <div class="field" style="margin-top:7px;margin-bottom:0">
-        <label>NOTES / BATCH</label>
-        <input type="text" value="${v.notes||''}" placeholder="e.g. Nobivac, batch #XY" oninput="tempVaccines[${i}].notes=this.value">
-      </div>
-    </div>`;
-  }).join('');
+  el.innerHTML = tempVaccines.length
+    ? tempVaccines.map((v,i) => renderOneVaccRow(v, i, 'tempVaccines', 'removeVaccineRow')).join('')
+    : '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px 0">No preventive care items added yet</div>';
 }
 
-function addVaccineRow() {
-  tempVaccines.push({ id: uid(), name: 'Custom Vaccine', date: '', nextDate: '', notes: '' });
+function addVaccineRow(type) {
+  type = type || 'vaccine';
+  const name = type === 'deworming' ? 'Deworming' : type === 'anti-flea' ? 'Anti-flea' : type === 'other' ? '' : '';
+  tempVaccines.push({ id: uid(), name, type, date: '', nextDate: '', notes: '', intervalDays: defaultInterval(type) });
   renderVaccineRows();
+  setTimeout(() => {
+    const cards = document.querySelectorAll('#vacc-rows .vacc-card');
+    if (cards.length) cards[cards.length-1].scrollIntoView({behavior:'smooth',block:'nearest'});
+  }, 50);
 }
+
+function removeVaccineRow(i) { tempVaccines.splice(i, 1); renderVaccineRows(); }
 
 function collectVaccineRows() {
-  return tempVaccines.filter(v => v.date || v.notes);
+  return tempVaccines.filter(v => v.date || v.notes || v.name);
 }
 
+// ── Patient modal direct vaccine editor ─────────────────
+function renderPatientVaccRows() {
+  const el = document.getElementById('pm-vacc-rows');
+  if (!el) return;
+  el.innerHTML = tempPatientVaccs.length
+    ? tempPatientVaccs.map((v,i) => renderOneVaccRow(v, i, 'tempPatientVaccs', 'removePatientVaccRow')).join('')
+    : '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px 0">No records yet — add below</div>';
+}
+
+function addPatientVaccRow(type) {
+  type = type || 'vaccine';
+  const name = type === 'deworming' ? 'Deworming' : type === 'anti-flea' ? 'Anti-flea' : type === 'other' ? '' : '';
+  tempPatientVaccs.push({ id: uid(), name, type, date: '', nextDate: '', notes: '', intervalDays: defaultInterval(type) });
+  renderPatientVaccRows();
+  setTimeout(() => {
+    const cards = document.querySelectorAll('#pm-vacc-rows .vacc-card');
+    if (cards.length) cards[cards.length-1].scrollIntoView({behavior:'smooth',block:'nearest'});
+  }, 50);
+}
+
+function removePatientVaccRow(i) { tempPatientVaccs.splice(i, 1); renderPatientVaccRows(); }
+
+// ── getPatientVaccineStatus: reads BOTH visit records AND p.vaccineRecords ──
 function getPatientVaccineStatus(p) {
-  const allVaccines = (p.visits||[]).flatMap(v => v.vaccines||[]);
-  const status = [];
-  const patSpecies = p.species || 'dog';
-  const relevantVaccines = VACCINES.filter(v => v.species.includes(patSpecies));
+  // Collect all vaccine records: from visits + from patient-level records
+  const fromVisits = (p.visits||[]).flatMap(v => (v.vaccines||[]).map(x => ({...x, _src:'visit'})));
+  const fromPatient = (p.vaccineRecords||[]).map(x => ({...x, _src:'patient'}));
+  const allRecords = [...fromVisits, ...fromPatient];
+
+  if (!allRecords.length) return [];
+
+  // Group by (type+name) key, track most recent per group
+  const groupMap = new Map();
   const today = new Date(); today.setHours(0,0,0,0);
-  relevantVaccines.forEach(vaccDef => {
-    const records = allVaccines.filter(v => v.id === vaccDef.id || v.name === vaccDef.name);
-    if (!records.length) { status.push({ name: vaccDef.name, status: 'none', daysLeft: null }); return; }
-    const lastRecord = records[records.length - 1];
-    const given = new Date(lastRecord.date);
-    const next = lastRecord.nextDate ? new Date(lastRecord.nextDate) : new Date(given.getTime() + vaccDef.intervalDays*86400000);
+  for (const rec of allRecords) {
+    const key = ((rec.type||'vaccine') + '|' + (rec.name||'').toLowerCase().trim());
+    if (!groupMap.has(key) || (rec.date && (!groupMap.get(key).date || rec.date > groupMap.get(key).date))) {
+      groupMap.set(key, rec);
+    }
+  }
+
+  const status = [];
+  for (const [, rec] of groupMap) {
+    const type = rec.type || 'vaccine';
+    const interval = rec.intervalDays || defaultInterval(type);
+    if (!rec.date) {
+      status.push({ name: rec.name||'Unknown', type, status: 'none', daysLeft: null });
+      continue;
+    }
+    const given = new Date(rec.date);
+    const next = rec.nextDate ? new Date(rec.nextDate) : new Date(given.getTime() + interval * 86400000);
     const daysLeft = Math.round((next - today) / 86400000);
-    status.push({ name: vaccDef.name, status: daysLeft < 0 ? 'due' : daysLeft <= 30 ? 'soon' : 'ok', daysLeft, nextDate: next });
-  });
-  return status;
+    status.push({ name: rec.name||'Unknown', type, status: daysLeft < 0 ? 'due' : daysLeft <= 30 ? 'soon' : 'ok', daysLeft, nextDate: next });
+  }
+  // Sort: overdue first, then soon, then ok, then none
+  const order = { due: 0, soon: 1, ok: 2, none: 3 };
+  return status.sort((a,b) => (order[a.status]||3) - (order[b.status]||3));
 }
 
 // ─── GITHUB GIST SYNC ─────────────────────────────────────
@@ -5272,10 +5692,28 @@ function saveGitHubSettings() {
   updateSyncStatusUI();
 }
 
+async function resetGistId() {
+  if (!ghToken) { toast('Enter a GitHub token first', 'error'); return; }
+  const proceed = await confirmDialog(
+    '🗑 Delete Backup & Create New',
+    'This will clear the saved Gist ID and create a brand-new backup on the next sync.\n\nThe old Gist file on GitHub is NOT deleted (you can remove it manually). Your local data is untouched.',
+    '🗑 Reset & Create New'
+  );
+  if (!proceed) return;
+  ghGistId = '';
+  localStorage.removeItem('vd_gh_gist_id');
+  localStorage.removeItem('vd_gh_last_sync');
+  setVal('gh-gist-id', '');
+  updateSyncStatusUI();
+  toast('Gist ID cleared — a new backup will be created on next sync', 'warn');
+  syncNow();
+}
+
 let gistSyncTimer = null;
 let appReady = false; // set true after init completes
+let syncInProgress = false; // prevent scheduleGistSync from re-triggering during an active sync
 function scheduleGistSync() {
-  if (!ghToken || !appReady) return;
+  if (!ghToken || !appReady || syncInProgress) return;
   clearTimeout(gistSyncTimer);
   gistSyncTimer = setTimeout(() => syncNow(true), 3000);
 }
@@ -5284,6 +5722,7 @@ async function syncNow(silent = false) {
   if (!ghToken) { if (!silent) toast('Enter GitHub token first', 'error'); return; }
   if (syncBusy) return;
   syncBusy = true;
+  syncInProgress = true;
   updateSyncStatusUI('busy');
   try {
     // Reload fresh data from IDB first
@@ -5352,6 +5791,7 @@ async function syncNow(silent = false) {
     updateSyncStatusUI('err');
   }
   syncBusy = false;
+  syncInProgress = false;
 }
 
 function buildGistPayload() {
@@ -5409,34 +5849,56 @@ async function fetchGistContent() {
     const fileNames = Object.keys(gistData.files || {}).join(', ');
     throw new Error(`File "${GIST_FILENAME}" not found in Gist. Files present: ${fileNames || 'none'}`);
   }
-  let content = fileEntry.content;
+  let content = fileEntry.content || '';
+
   if (fileEntry.raw_url) {
     try {
       const rawRes = await fetch(fileEntry.raw_url, { mode: 'cors', credentials: 'omit' });
       if (rawRes.ok) {
         const rawText = await rawRes.text();
-        if (rawText && rawText.trimStart().startsWith('{')) content = rawText;
-        else console.warn('raw_url returned non-JSON:', rawText.slice(0, 100));
+        const trimmed = (rawText || '').trimStart();
+        if (trimmed.startsWith('{') && !trimmed.startsWith('{"message"')) {
+          content = rawText; // valid VetDose JSON
+        } else if (trimmed.startsWith('{"message"')) {
+          console.warn('raw_url returned GitHub error:', trimmed.slice(0, 120));
+          // fall through to inline content
+        } else {
+          console.warn('raw_url returned non-JSON:', trimmed.slice(0, 100));
+        }
+      } else {
+        console.warn('raw_url HTTP', rawRes.status);
       }
-    } catch(e) { console.warn('raw_url fetch failed:', e); }
+    } catch(e) { console.warn('raw_url fetch failed, using inline content:', e.message); }
   }
+
   if (!content || !content.trimStart().startsWith('{'))
-    throw new Error('Gist file is empty or unreadable — sync from PC first then try again');
+    throw new Error('Gist file is empty — sync from PC first, then pull again');
+
+  const trimmedContent = content.trimStart();
+  if (trimmedContent.startsWith('{"message"')) {
+    const errMsg = JSON.parse(trimmedContent).message || 'unknown';
+    throw new Error(`GitHub error: ${errMsg}. Check your token has "gist" scope.`);
+  }
+
   try { return JSON.parse(content); }
-  catch(e) { throw new Error('Gist data could not be read (parse error). Try syncing from PC again.'); }
+  catch(e) {
+    console.error('JSON parse failed on content preview:', content.slice(0, 300));
+    throw new Error('Gist data is corrupted. Try: 1) Sync from PC, 2) Pull again.');
+  }
 }
 
 function mergeData(local, cloud) {
-  // ── Meds: merge by id, cloud wins on conflict ────────────────────
+  // ── Meds: merge by id only (name dedup was causing legitimate meds to be dropped)
   const medMap = new Map(local.meds.map(m => [m.id, m]));
   let medsAdded = 0, medsUpdated = 0;
   for (const cm of cloud.meds) {
-    if (!medMap.has(cm.id)) { medMap.set(cm.id, cm); medsAdded++; }
-    else {
+    if (medMap.has(cm.id)) {
       const lm = medMap.get(cm.id);
-      // Cloud wins if it was modified more recently (use updatedAt if present)
       const cloudNewer = cm.updatedAt && lm.updatedAt ? cm.updatedAt > lm.updatedAt : false;
       if (cloudNewer) { medMap.set(cm.id, cm); medsUpdated++; }
+    } else {
+      medMap.set(cm.id, cm);
+      medsAdded++;
     }
   }
 
@@ -5581,20 +6043,57 @@ function updateSyncStatusUI(state) {
   const txt = document.getElementById('sync-status-text');
   const sub = document.getElementById('sync-last-time');
   const cnt = document.getElementById('sync-data-count');
-  if (!dot) return;
-  dot.className = 'sync-dot ' + (state||'');
-  if (!state || state === 'ok') {
-    if (!ghToken) { txt && (txt.textContent = 'Not configured — add token above'); return; }
-    txt && (txt.textContent = ghGistId ? '✅ Connected — Gist: ' + ghGistId.slice(0,8)+'…' : '⚡ Token saved — will create Gist on first sync');
-    const stored = localStorage.getItem('vd_gh_last_sync');
-    if (sub && stored) sub.textContent = 'Last sync: ' + new Date(stored).toLocaleString();
-    // Show what will be synced so user can verify it's not empty
-    if (cnt) cnt.textContent = meds.length || patients.length ? `${meds.length} meds · ${patients.length} patients · ${calcHistory.length} calculations` : '';
+  const headerDot = document.getElementById('header-sync-dot');
+
+  // Determine display values
+  let dotColor = 'var(--muted)';
+  let statusText = 'Not configured';
+  let subText = '';
+
+  if (!ghToken) {
+    dotColor = 'var(--muted)';
+    statusText = 'Not configured — add token above';
   } else if (state === 'busy') {
-    txt && (txt.textContent = '⏳ Syncing…');
+    dotColor = 'var(--warn)';
+    statusText = '⏳ Syncing…';
   } else if (state === 'err') {
-    txt && (txt.textContent = '❌ Sync failed — check token/network');
+    dotColor = 'var(--danger)';
+    statusText = '❌ Sync failed — check token/network';
+  } else {
+    dotColor = 'var(--accent)';
+    const stored = localStorage.getItem('vd_gh_last_sync');
+    if (stored) subText = 'Last sync: ' + new Date(stored).toLocaleString();
+    statusText = ghGistId ? '✅ Connected — Gist: ' + ghGistId.slice(0,8)+'…' : '⚡ Token saved';
   }
+
+  // Update Settings page status row
+  if (dot) { dot.className = 'sync-dot ' + (state||''); }
+  if (txt) txt.textContent = statusText;
+  if (sub && subText) sub.textContent = subText;
+  if (cnt) cnt.textContent = (meds.length || patients.length) ? `${meds.length} meds · ${patients.length} patients · ${calcHistory.length} calculations` : '';
+
+  // Update header dot
+  if (headerDot) {
+    headerDot.style.display = ghToken ? 'block' : 'none';
+    headerDot.style.background = dotColor;
+    headerDot.title = statusText + (subText ? '\n' + subText : '');
+  }
+
+  // Update all mini sync bars
+  const miniBarIds = ['calc', 'meds', 'patients', 'history'];
+  const stored2 = localStorage.getItem('vd_gh_last_sync');
+  const miniText = !ghToken ? 'Tap to set up cloud sync' :
+    state === 'busy' ? '⏳ Syncing…' :
+    state === 'err'  ? '❌ Sync failed — tap to retry' :
+    stored2 ? '☁ Last sync: ' + new Date(stored2).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) :
+    '☁ Connected — not synced yet';
+
+  miniBarIds.forEach(id => {
+    const mdot = document.getElementById('msb-dot-' + id);
+    const mtxt = document.getElementById('msb-text-' + id);
+    if (mdot) mdot.style.background = dotColor;
+    if (mtxt) mtxt.textContent = miniText;
+  });
 }
 
 // ─── PRESCRIPTION PDF / PRINT ─────────────────────────────
@@ -5885,6 +6384,11 @@ function printFallback(text) {
   try {
     await loadData();
     await loadPatients();
+    // Deduplicate meds by id (guard against repeated syncs adding duplicates)
+    const seenIds = new Set();
+    meds = meds.filter(m => { if (seenIds.has(m.id)) return false; seenIds.add(m.id); return true; });
+    // Backfill memorable patient IDs for existing records
+    backfillPatientPids();
     loadGitHubSettings();
     linkLibraryDrugContras();
     initSessions();
